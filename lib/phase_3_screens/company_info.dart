@@ -120,14 +120,33 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
     if (_formKey.currentState!.validate()) {
       final box = await Hive.openBox('companyBox');
 
-      await box.put('companyName', nameController.text.trim());
-      await box.put('companyAddress', addressController.text.trim());
-      await box.put('companyPhone', phoneController.text.trim());
-      await box.put('companyEmail', emailController.text.trim());
-      await box.put('companyGst', gstController.text.trim());
+      final companyName = nameController.text.trim();
+      final companyAddress = addressController.text.trim();
+      final companyPhone = phoneController.text.trim();
+      final companyEmail = emailController.text.trim();
+      final companyGst = gstController.text.trim().toUpperCase();
+
+      await box.put('companyName', companyName);
+      await box.put('companyAddress', companyAddress);
+      await box.put('companyPhone', companyPhone);
+      await box.put('companyEmail', companyEmail);
+      await box.put('companyGst', companyGst);
       await box.put('companyTerms', termsController.text.trim());
       await box.put('isGstEnabled', isGstEnabled);
       await box.put('isLogoCompressionEnabled', isLogoCompressionEnabled);
+
+      final settingsBox = await Hive.openBox('settingsBox');
+      await settingsBox.put('companyName', companyName);
+      await settingsBox.put('companyAddress', companyAddress);
+      await settingsBox.put('companyPhone', companyPhone);
+      await settingsBox.put('companyEmail', companyEmail);
+      await settingsBox.put('companyGst', companyGst);
+      await settingsBox.put('isGstEnabled', isGstEnabled);
+
+      final stateCode = _stateCodeFromGstin(companyGst);
+      if (stateCode != null) {
+        await settingsBox.put('companyStateCode', stateCode);
+      }
 
       // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
@@ -136,6 +155,15 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
         ),
       );
     }
+  }
+
+
+  String? _stateCodeFromGstin(String gstin) {
+    final trimmed = gstin.trim();
+    if (trimmed.length >= 2 && RegExp(r'^\d{2}').hasMatch(trimmed)) {
+      return trimmed.substring(0, 2);
+    }
+    return null;
   }
 
   @override

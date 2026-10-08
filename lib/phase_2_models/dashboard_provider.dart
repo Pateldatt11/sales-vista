@@ -1,5 +1,5 @@
-import 'sales_model.dart';
-import 'dashboard_summary_model.dart';
+import 'package:salesvista/phase_2_models/sales_model.dart';
+import 'package:salesvista/phase_2_models/dashboard_summary_model.dart';
 
 class DashboardProvider {
   final List<SalesModel> _sales = [

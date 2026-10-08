@@ -28,20 +28,10 @@ migrate_working_dir/
 **/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins-dependencies
-.flutter-plugins
 .pub-cache/
 .pub/
-/build/*
-!/build/web/
-!/build/web/**
+/build/
 /coverage/
-/lib.zip
-.fvm/
-
-# Flutter platform-generated files
-**/ephemeral/
-/android/.gradle/
-/android/local.properties
 
 # Symbolication related
 app.*.symbols

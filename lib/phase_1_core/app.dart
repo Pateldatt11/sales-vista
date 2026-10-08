@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'app_routes.dart';
-import 'app_theme.dart';
+import 'package:salesvista/phase_1_core/app_routes.dart';
+import 'package:salesvista/phase_1_core/app_theme.dart';
 
 class SalesVistaApp extends StatelessWidget {
   const SalesVistaApp({super.key});

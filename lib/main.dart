@@ -2,19 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 // Models
-import 'phase_2_models/sales_model.dart';
-import 'phase_2_models/user_model.dart';
-import 'phase_2_models/transaction_model.dart';
-import 'phase_2_models/country_model.dart';
-import 'phase_2_models/order_model.dart';
-import 'phase_2_models/invoice_model.dart';
+import 'package:salesvista/phase_2_models/sales_model.dart';
+import 'package:salesvista/phase_2_models/user_model.dart';
+import 'package:salesvista/phase_2_models/transaction_model.dart';
+import 'package:salesvista/phase_2_models/country_model.dart';
+import 'package:salesvista/phase_2_models/order_model.dart';
+import 'package:salesvista/phase_2_models/invoice_model.dart';
 
 // ✅ Phase 3 Model
 import 'package:salesvista/phase_2_models/expense_model.dart';
 
 // Core
-import 'phase_1_core/app_theme.dart';
-import 'phase_1_core/app_routes.dart';
+import 'package:salesvista/phase_1_core/app_theme.dart';
+import 'package:salesvista/phase_1_core/app_routes.dart';
+import 'package:salesvista/phase_3_services/pos_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,7 +53,13 @@ Future<void> _initHive() async {
     // ✅ Open Expense Box (NEW)
     Hive.openBox<ExpenseModel>('expenses_box'),
     Hive.openBox('settingsBox'),
+    Hive.openBox('inventory_meta_box'),
+    Hive.openBox('customers_box'),
+    Hive.openBox('app_audit_box'),
+    Hive.openBox('return_orders_box'),
   ]);
+
+  await PosRepository().seedIfEmpty();
 }
 
 // Helper to safely register Hive adapters

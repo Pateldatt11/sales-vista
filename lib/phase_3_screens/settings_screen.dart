@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
-import '../phase_1_core/app_routes.dart';
-import 'package:salesvista/phase_4_widgets/base_scaffold.dart'; // Reusable BaseScaffold
+
+import 'package:salesvista/phase_1_core/app_routes.dart';
+import 'package:salesvista/phase_3_services/pos_repository.dart';
+import 'package:salesvista/phase_4_widgets/base_scaffold.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,55 +13,96 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final PosRepository _repo = PosRepository();
+  final TextEditingController _stateCodeController = TextEditingController();
+  final TextEditingController _invoicePrefixController = TextEditingController();
   bool isDarkMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _stateCodeController.text = _repo.settingsBox.get('companyStateCode', defaultValue: '24').toString();
+    _invoicePrefixController.text = _repo.settingsBox.get('invoicePrefix', defaultValue: 'INV').toString();
+  }
+
+  @override
+  void dispose() {
+    _stateCodeController.dispose();
+    _invoicePrefixController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return BaseScaffold(
-      title: "Settings",
+      title: 'Settings',
       currentRoute: AppRoutes.settings,
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-
-          // ===== Theme Switch =====
-          SwitchListTile(
-            title: const Text("Dark Mode"),
-            value: isDarkMode,
-            onChanged: (value) {
-              setState(() {
-                isDarkMode = value;
-              });
-
-              // NOTE:
-              // This only toggles switch visually.
-              // Full theme switching requires state management.
-            },
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('GST & Billing Defaults', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _stateCodeController,
+                    decoration: const InputDecoration(labelText: 'Company State Code', helperText: 'Used for IGST vs CGST/SGST split. Gujarat = 24.', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _invoicePrefixController,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: InputDecoration(
+                      labelText: 'Invoice Prefix',
+                      helperText: 'Invoice pattern: PREFIX-YYYYMMDD-001. Example: ${_repo.previewNextInvoiceNumber()}',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      await _repo.settingsBox.put('companyStateCode', _stateCodeController.text.trim().isEmpty ? '24' : _stateCodeController.text.trim());
+                      final cleanPrefix = _invoicePrefixController.text.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+                      await _repo.settingsBox.put('invoicePrefix', cleanPrefix.isEmpty ? 'INV' : cleanPrefix);
+                      _invoicePrefixController.text = cleanPrefix.isEmpty ? 'INV' : cleanPrefix;
+                      if (!mounted) return;
+                      setState(() {});
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Settings saved')));
+                    },
+                    icon: const Icon(Icons.save_rounded),
+                    label: const Text('Save Settings'),
+                  ),
+                ],
+              ),
+            ),
           ),
-
+          SwitchListTile(
+            title: const Text('Dark Mode'),
+            subtitle: const Text('Visual placeholder. Full theme switching can be connected later.'),
+            value: isDarkMode,
+            onChanged: (value) => setState(() => isDarkMode = value),
+          ),
           const Divider(),
-
-          // ===== Clear Data =====
+          ListTile(
+            leading: const Icon(Icons.backup_rounded, color: Colors.indigo),
+            title: const Text('Backup & Restore'),
+            subtitle: const Text('Export JSON and restore master data'),
+            onTap: () => Navigator.pushNamed(context, AppRoutes.backup),
+          ),
+          const Divider(),
           ListTile(
             leading: const Icon(Icons.delete_forever, color: Colors.red),
-            title: const Text("Clear All Data"),
+            title: const Text('Clear All Data'),
+            subtitle: const Text('Deletes sales, inventory, customers, invoices, transactions and reports'),
             onTap: _showClearConfirmation,
           ),
-
           const Divider(),
-
-          // ===== App Info =====
-          const ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text("App Version"),
-            subtitle: Text("SalesVista v1.0.0"),
-          ),
-
-          const ListTile(
-            leading: Icon(Icons.business),
-            title: Text("Company"),
-            subtitle: Text("SalesVista Solutions"),
-          ),
+          const ListTile(leading: Icon(Icons.info_outline), title: Text('App Version'), subtitle: Text('SalesVista Professional POS v2.0')),
+          const ListTile(leading: Icon(Icons.business), title: Text('Company'), subtitle: Text('Configure company details from Company Info')),
         ],
       ),
     );
@@ -68,42 +111,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showClearConfirmation() {
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Clear All Data"),
-          content: const Text(
-              "This will permanently delete all app data. Continue?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await _clearAllBoxes();
-                // ignore: use_build_context_synchronously
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
-              child: const Text("Delete"),
-            ),
-          ],
-        );
-      },
+      builder: (context) => AlertDialog(
+        title: const Text('Clear All Data'),
+        content: const Text('This permanently deletes all local app data. Export a backup first. Continue?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              await _clearAllBoxes();
+              if (!mounted) return;
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All data cleared')));
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
 
   Future<void> _clearAllBoxes() async {
-    await Hive.box('sales_box').clear();
-    await Hive.box('transactions_box').clear();
-    await Hive.box('users_box').clear();
-    await Hive.box('countries_box').clear();
-
-    // If invoice box exists
-    if (Hive.isBoxOpen('invoice_box')) {
-      await Hive.box('invoice_box').clear();
+    for (final name in [
+      'sales_box',
+      'transactions_box',
+      'users_box',
+      'countries_box',
+      'orders_box',
+      'invoice_box',
+      'expenses_box',
+      'inventory_meta_box',
+      'customers_box',
+      'app_audit_box',
+    ]) {
+      if (Hive.isBoxOpen(name)) await Hive.box(name).clear();
     }
   }
 }

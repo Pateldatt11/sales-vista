@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import '../phase_2_models/country_model.dart';
-import '../phase_1_core/app_routes.dart';
+import 'package:salesvista/phase_2_models/country_model.dart';
+import 'package:salesvista/phase_1_core/app_routes.dart';
 import 'package:salesvista/phase_4_widgets/base_scaffold.dart'; // Import the reusable BaseScaffold
 
 class CountriesScreen extends StatelessWidget {

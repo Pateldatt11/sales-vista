@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import '../phase_2_models/invoice_model.dart';
-import '../phase_1_core/app_routes.dart';
-import '../phase_4_widgets/base_scaffold.dart';
+import 'package:salesvista/phase_2_models/invoice_model.dart';
+import 'package:salesvista/phase_1_core/app_routes.dart';
+import 'package:salesvista/phase_4_widgets/base_scaffold.dart';
 import 'package:salesvista/phase_3_services/gstr1_service.dart'; // <-- import the service
 
 
@@ -123,13 +123,22 @@ class _GstR1StatementScreenState
                             ),
                           ),
                           const SizedBox(width: 12),
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              await _downloadGstr1File(
-                                  invoices.toList());
-                            },
-                            icon: const Icon(Icons.download),
-                            label: const Text("Download GST R1"),
+                          _exportButton(
+                            label: "CSV",
+                            icon: Icons.table_chart,
+                            format: "csv",
+                          ),
+                          const SizedBox(width: 8),
+                          _exportButton(
+                            label: "XLSX",
+                            icon: Icons.grid_on,
+                            format: "xlsx",
+                          ),
+                          const SizedBox(width: 8),
+                          _exportButton(
+                            label: "PDF",
+                            icon: Icons.picture_as_pdf,
+                            format: "pdf",
                           ),
                         ],
                       ),
@@ -404,26 +413,43 @@ Future<void> _pickMonthYear() async {
     }
   }
   
-    /// Download using Gstr1Service
-  Future<void> _downloadGstr1File(List<InvoiceModel> invoices) async {
+  Widget _exportButton({
+    required String label,
+    required IconData icon,
+    required String format,
+  }) {
+    return ElevatedButton.icon(
+      onPressed: () => _downloadGstr1File(format),
+      icon: Icon(icon, size: 18),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      ),
+    );
+  }
+
+    /// Download GST R1 in CSV, XLSX or PDF format.
+  Future<void> _downloadGstr1File(String format) async {
     try {
-      await Gstr1Service.exportMonthlyGstr1(
+      final settingsBox = Hive.box('settingsBox');
+      final message = await Gstr1Service.exportMonthlyGstr1(
         month: selectedDate.month,
         year: selectedDate.year,
-        companyStateCode: "KA", // <-- replace with your logic
+        companyStateCode: settingsBox.get('companyStateCode', defaultValue: '24').toString(),
+        format: format,
       );
 
       // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              "GST R1 for ${selectedDate.month}-${selectedDate.year} downloaded!"),
+              "GST R1 ${format.toUpperCase()} for ${selectedDate.month}-${selectedDate.year} ready. $message"),
         ),
       );
     } catch (e) {
       // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to download GST R1: $e")),
+        SnackBar(content: Text("Failed to export GST R1 ${format.toUpperCase()}: $e")),
       );
     }
   }

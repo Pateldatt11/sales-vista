@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../phase_1_core/responsive.dart';
+import 'package:salesvista/phase_1_core/responsive.dart';
 
 class DashboardUI {
   /// ================================

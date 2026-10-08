@@ -1,7 +1,7 @@
 import 'package:hive/hive.dart';
-import '../phase_2_models/order_model.dart';
-import '../phase_2_models/invoice_model.dart';
-import '../phase_2_models/transaction_model.dart';
+import 'package:salesvista/phase_2_models/order_model.dart';
+import 'package:salesvista/phase_2_models/invoice_model.dart';
+import 'package:salesvista/phase_2_models/transaction_model.dart';
 
 class OrderService {
 

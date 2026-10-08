@@ -1,15 +1,11 @@
-import 'package:hive/hive.dart';
 import 'dart:typed_data';
+
+import 'package:hive/hive.dart';
 
 part 'invoice_model.g.dart';
 
 @HiveType(typeId: 6)
 class InvoiceModel extends HiveObject {
-
-  // ======================
-  // EXISTING FIELDS
-  // ======================
-
   @HiveField(0)
   String id;
 
@@ -19,6 +15,7 @@ class InvoiceModel extends HiveObject {
   @HiveField(2)
   String customerName;
 
+  /// Taxable subtotal before GST and discount.
   @HiveField(3)
   double amount;
 
@@ -31,12 +28,15 @@ class InvoiceModel extends HiveObject {
   @HiveField(6)
   double? dueAmount;
 
+  /// Legacy single-product invoice field. New invoices use [lineItems].
   @HiveField(7)
   String? productName;
 
+  /// Legacy single-product quantity field. New invoices use [lineItems].
   @HiveField(8)
   double quantity;
 
+  /// Legacy single-product unit price field. New invoices use [lineItems].
   @HiveField(9)
   double unitPrice;
 
@@ -49,24 +49,24 @@ class InvoiceModel extends HiveObject {
   @HiveField(12)
   bool isGstEnabled;
 
+  /// For mixed-rate invoices this can be 0. Use item-level GST rates instead.
   @HiveField(13)
   double gstPercent;
-
-  // ======================
-  // 🔥 LEVEL 3 GST FIELDS
-  // ======================
 
   @HiveField(14)
   String? buyerGstin;
 
+  /// GST place of supply state code, for example Gujarat = 24.
   @HiveField(15)
-  String? placeOfSupply; // State code like "27"
+  String? placeOfSupply;
 
+  /// Legacy single-product HSN field. New invoices use item-level HSN.
   @HiveField(16)
   String? hsnCode;
 
+  /// B2B / B2C.
   @HiveField(17)
-  String invoiceType; // B2B / B2C
+  String invoiceType;
 
   @HiveField(18)
   double igst;
@@ -77,8 +77,21 @@ class InvoiceModel extends HiveObject {
   @HiveField(20)
   double sgst;
 
-  // ignore: strict_top_level_inference, prefer_typing_uninitialized_variables
-  var taxRate;
+  /// Multi-product invoice lines saved as primitive maps so old Hive data remains safe.
+  @HiveField(21)
+  List<Map<String, dynamic>> lineItems;
+
+  @HiveField(22)
+  double discountAmount;
+
+  @HiveField(23)
+  String paymentMode;
+
+  @HiveField(24)
+  String? customerId;
+
+  @HiveField(25)
+  List<String> orderIds;
 
   InvoiceModel({
     required this.id,
@@ -95,33 +108,73 @@ class InvoiceModel extends HiveObject {
     this.signatureBytes,
     this.isGstEnabled = false,
     this.gstPercent = 0.0,
-
-    // New fields defaulted for old invoices
     this.buyerGstin,
     this.placeOfSupply,
     this.hsnCode,
-    this.invoiceType = "B2C",
+    this.invoiceType = 'B2C',
     this.igst = 0.0,
     this.cgst = 0.0,
     this.sgst = 0.0,
-  });
+    List<Map<String, dynamic>>? lineItems,
+    this.discountAmount = 0.0,
+    this.paymentMode = 'Cash',
+    this.customerId,
+    List<String>? orderIds,
+  })  : lineItems = lineItems ?? <Map<String, dynamic>>[],
+        orderIds = orderIds ?? (orderId.isEmpty ? <String>[] : <String>[orderId]);
 
-  // ======================
-  // SAFE COMPUTED GETTERS
-  // ======================
+  bool get hasMultipleItems => items.length > 1;
 
-  String get safeProductName => productName ?? 'Unknown Product';
+  List<InvoiceLineItem> get items {
+    if (lineItems.isNotEmpty) {
+      return lineItems.map(InvoiceLineItem.fromMap).toList(growable: false);
+    }
+    return <InvoiceLineItem>[
+      InvoiceLineItem(
+        orderId: orderId,
+        productId: saleId,
+        productName: productName ?? 'Unknown Product',
+        hsn: hsnCode ?? '',
+        quantity: quantity,
+        unitPrice: unitPrice,
+        gstPercent: gstPercent,
+      ),
+    ];
+  }
+
+  String get safeProductName {
+    final invoiceItems = items;
+    if (invoiceItems.length == 1) return invoiceItems.first.productName;
+    final names = invoiceItems.take(2).map((e) => e.productName).join(', ');
+    final remaining = invoiceItems.length - 2;
+    return remaining > 0 ? '$names + $remaining more' : names;
+  }
+
+  int get itemCount => items.length;
 
   double get paid => paidAmount ?? 0.0;
 
-  double get subtotal => amount;
+  double get subtotal {
+    if (lineItems.isNotEmpty) {
+      return items.fold<double>(0.0, (sum, item) => sum + item.taxableValue);
+    }
+    return amount;
+  }
+
+  double get totalQuantity => items.fold<double>(0.0, (sum, item) => sum + item.quantity);
 
   double get gstAmount {
     if (!isGstEnabled) return 0.0;
+    if (lineItems.isNotEmpty) {
+      return items.fold<double>(0.0, (sum, item) => sum + item.gstAmount);
+    }
     return subtotal * gstPercent / 100;
   }
 
-  double get grandTotal => subtotal + gstAmount;
+  double get grandTotal {
+    final total = subtotal + gstAmount - discountAmount;
+    return total < 0 ? 0.0 : total;
+  }
 
   double get due {
     if (dueAmount != null) return dueAmount!;
@@ -129,59 +182,36 @@ class InvoiceModel extends HiveObject {
     return calculated < 0 ? 0.0 : calculated;
   }
 
-  // ======================
-  // 🔥 GST SPLIT LOGIC
-  // ======================
-
   void calculateTax(String companyStateCode) {
-
-    if (!isGstEnabled) {
-      igst = 0;
-      cgst = 0;
-      sgst = 0;
-      invoiceType = "B2C";
+    if (!isGstEnabled || gstAmount <= 0) {
+      igst = 0.0;
+      cgst = 0.0;
+      sgst = 0.0;
+      invoiceType = buyerGstin != null && buyerGstin!.trim().isNotEmpty ? 'B2B' : 'B2C';
       return;
     }
 
+    invoiceType = buyerGstin != null && buyerGstin!.trim().isNotEmpty ? 'B2B' : 'B2C';
     final totalTax = gstAmount;
+    final pos = placeOfSupply?.trim();
 
-    // B2B or B2C
-    if (buyerGstin != null && buyerGstin!.isNotEmpty) {
-      invoiceType = "B2B";
-    } else {
-      invoiceType = "B2C";
-    }
-
-    // Inter-state → IGST
-    if (placeOfSupply != null &&
-        placeOfSupply != companyStateCode) {
-
+    if (pos != null && pos.isNotEmpty && pos != companyStateCode.trim()) {
       igst = totalTax;
-      cgst = 0;
-      sgst = 0;
-
+      cgst = 0.0;
+      sgst = 0.0;
     } else {
-      // Intra-state → CGST + SGST
-      igst = 0;
+      igst = 0.0;
       cgst = totalTax / 2;
       sgst = totalTax / 2;
     }
   }
 
-  // ======================
-  // PAYMENT UPDATE
-  // ======================
-
   void updatePayment(double newPaidAmount) {
-    paidAmount = newPaidAmount;
-    final newDue = grandTotal - newPaidAmount;
+    paidAmount = newPaidAmount.clamp(0.0, grandTotal).toDouble();
+    final newDue = grandTotal - paidAmount!;
     dueAmount = newDue < 0 ? 0.0 : newDue;
     save();
   }
-
-  // ======================
-  // GST UPDATE
-  // ======================
 
   void updateGst({
     required bool enabled,
@@ -196,15 +226,9 @@ class InvoiceModel extends HiveObject {
     buyerGstin = gstin;
     placeOfSupply = pos;
     hsnCode = hsn;
-
     calculateTax(companyStateCode);
-
     save();
   }
-
-  // ======================
-  // SIGNATURE METHODS
-  // ======================
 
   void updateSignature(Uint8List newSignature) {
     signatureBytes = newSignature;
@@ -216,6 +240,81 @@ class InvoiceModel extends HiveObject {
     save();
   }
 
-  // ignore: body_might_complete_normally_nullable
-  Object? toJson() {}
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'saleId': saleId,
+        'customerId': customerId,
+        'customerName': customerName,
+        'amount': amount,
+        'subtotal': subtotal,
+        'gstAmount': gstAmount,
+        'discountAmount': discountAmount,
+        'grandTotal': grandTotal,
+        'paidAmount': paid,
+        'dueAmount': due,
+        'date': date.toIso8601String(),
+        'paymentMode': paymentMode,
+        'buyerGstin': buyerGstin,
+        'placeOfSupply': placeOfSupply,
+        'invoiceType': invoiceType,
+        'igst': igst,
+        'cgst': cgst,
+        'sgst': sgst,
+        'orderIds': orderIds,
+        'lineItems': items.map((e) => e.toJson()).toList(),
+      };
+}
+
+class InvoiceLineItem {
+  final String orderId;
+  final String productId;
+  final String productName;
+  final String hsn;
+  final double quantity;
+  final double unitPrice;
+  final double gstPercent;
+
+  const InvoiceLineItem({
+    this.orderId = '',
+    required this.productId,
+    required this.productName,
+    required this.hsn,
+    required this.quantity,
+    required this.unitPrice,
+    required this.gstPercent,
+  });
+
+  factory InvoiceLineItem.fromMap(Map<dynamic, dynamic> map) {
+    return InvoiceLineItem(
+      orderId: map['orderId']?.toString() ?? '',
+      productId: map['productId']?.toString() ?? '',
+      productName: map['productName']?.toString() ?? 'Unknown Product',
+      hsn: map['hsn']?.toString() ?? '',
+      quantity: _asDouble(map['quantity']),
+      unitPrice: _asDouble(map['unitPrice']),
+      gstPercent: _asDouble(map['gstPercent']),
+    );
+  }
+
+  double get taxableValue => quantity * unitPrice;
+  double get gstAmount => taxableValue * gstPercent / 100;
+  double get lineTotal => taxableValue + gstAmount;
+
+  Map<String, dynamic> toJson() => {
+        'orderId': orderId,
+        'productId': productId,
+        'productName': productName,
+        'hsn': hsn,
+        'quantity': quantity,
+        'unitPrice': unitPrice,
+        'gstPercent': gstPercent,
+        'taxableValue': taxableValue,
+        'gstAmount': gstAmount,
+        'lineTotal': lineTotal,
+      };
+
+  static double _asDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0.0;
+  }
 }

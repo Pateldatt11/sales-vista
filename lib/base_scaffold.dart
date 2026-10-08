@@ -1,8 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../phase_1_core/app_routes.dart';
-import '../phase_1_core/responsive.dart';
+import 'package:salesvista/phase_1_core/app_routes.dart';
+import 'package:salesvista/phase_1_core/responsive.dart';
 
 class BaseScaffold extends StatelessWidget {
   final String title;
@@ -242,6 +242,8 @@ class BaseScaffold extends StatelessWidget {
         _RouteItem("Transactions",
             AppRoutes.transactions,
             Icons.receipt_long_rounded),
+        _RouteItem("Returns", AppRoutes.returns,
+            Icons.assignment_return_rounded),
         _RouteItem("Users", AppRoutes.users,
             Icons.group_rounded),
         _RouteItem("Countries",

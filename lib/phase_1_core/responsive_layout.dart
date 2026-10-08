@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'responsive.dart';
+import 'package:salesvista/phase_1_core/responsive.dart';
 
 class ResponsiveLayout extends StatelessWidget {
   final Widget mobile;

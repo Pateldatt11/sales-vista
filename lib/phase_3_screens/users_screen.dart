@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import '../phase_2_models/user_model.dart';
-import '../phase_1_core/app_routes.dart';
+import 'package:salesvista/phase_2_models/user_model.dart';
+import 'package:salesvista/phase_1_core/app_routes.dart';
 import 'package:salesvista/phase_4_widgets/base_scaffold.dart';
 
 class UsersScreen extends StatelessWidget {

@@ -16,35 +16,62 @@ class InvoiceModelAdapter extends TypeAdapter<InvoiceModel> {
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
+
+    List<Map<String, dynamic>> readLineItems(Object? raw) {
+      if (raw is List) {
+        return raw
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(
+                  item.map((key, value) => MapEntry(key.toString(), value)),
+                ))
+            .toList();
+      }
+      return <Map<String, dynamic>>[];
+    }
+
+    List<String> readOrderIds(Object? raw, String fallback) {
+      if (raw is List) {
+        return raw.map((item) => item.toString()).where((id) => id.isNotEmpty).toList();
+      }
+      return fallback.isEmpty ? <String>[] : <String>[fallback];
+    }
+
+    final orderId = fields[10]?.toString() ?? '';
+
     return InvoiceModel(
-      id: fields[0] as String,
-      saleId: fields[1] as String,
-      customerName: fields[2] as String,
-      amount: fields[3] as double,
-      date: fields[4] as DateTime,
+      id: fields[0]?.toString() ?? '',
+      saleId: fields[1]?.toString() ?? '',
+      customerName: fields[2]?.toString() ?? 'Walk-in Customer',
+      amount: (fields[3] as num?)?.toDouble() ?? 0.0,
+      date: fields[4] as DateTime? ?? DateTime.now(),
       productName: fields[7] as String?,
-      quantity: fields[8] as double,
-      unitPrice: fields[9] as double,
-      orderId: fields[10] as String,
-      paidAmount: fields[5] as double?,
-      dueAmount: fields[6] as double?,
+      quantity: (fields[8] as num?)?.toDouble() ?? 0.0,
+      unitPrice: (fields[9] as num?)?.toDouble() ?? 0.0,
+      orderId: orderId,
+      paidAmount: (fields[5] as num?)?.toDouble(),
+      dueAmount: (fields[6] as num?)?.toDouble(),
       signatureBytes: fields[11] as Uint8List?,
-      isGstEnabled: fields[12] as bool,
-      gstPercent: fields[13] as double,
+      isGstEnabled: fields[12] as bool? ?? false,
+      gstPercent: (fields[13] as num?)?.toDouble() ?? 0.0,
       buyerGstin: fields[14] as String?,
       placeOfSupply: fields[15] as String?,
       hsnCode: fields[16] as String?,
-      invoiceType: fields[17] as String,
-      igst: fields[18] as double,
-      cgst: fields[19] as double,
-      sgst: fields[20] as double,
+      invoiceType: fields[17]?.toString() ?? 'B2C',
+      igst: (fields[18] as num?)?.toDouble() ?? 0.0,
+      cgst: (fields[19] as num?)?.toDouble() ?? 0.0,
+      sgst: (fields[20] as num?)?.toDouble() ?? 0.0,
+      lineItems: readLineItems(fields[21]),
+      discountAmount: (fields[22] as num?)?.toDouble() ?? 0.0,
+      paymentMode: fields[23]?.toString() ?? 'Cash',
+      customerId: fields[24] as String?,
+      orderIds: readOrderIds(fields[25], orderId),
     );
   }
 
   @override
   void write(BinaryWriter writer, InvoiceModel obj) {
     writer
-      ..writeByte(21)
+      ..writeByte(26)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -86,7 +113,17 @@ class InvoiceModelAdapter extends TypeAdapter<InvoiceModel> {
       ..writeByte(19)
       ..write(obj.cgst)
       ..writeByte(20)
-      ..write(obj.sgst);
+      ..write(obj.sgst)
+      ..writeByte(21)
+      ..write(obj.lineItems)
+      ..writeByte(22)
+      ..write(obj.discountAmount)
+      ..writeByte(23)
+      ..write(obj.paymentMode)
+      ..writeByte(24)
+      ..write(obj.customerId)
+      ..writeByte(25)
+      ..write(obj.orderIds);
   }
 
   @override

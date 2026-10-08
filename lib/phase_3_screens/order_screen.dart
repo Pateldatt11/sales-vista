@@ -5,13 +5,14 @@ import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import '../phase_2_models/sales_model.dart';
-import '../phase_2_models/order_model.dart';
-import '../phase_2_models/transaction_model.dart';
+import 'package:salesvista/phase_2_models/sales_model.dart';
+import 'package:salesvista/phase_2_models/order_model.dart';
+import 'package:salesvista/phase_2_models/transaction_model.dart';
 import 'package:salesvista/phase_2_models/invoice_model.dart';
-import '../phase_2_models/user_model.dart';
-import '../phase_1_core/app_routes.dart';
+import 'package:salesvista/phase_2_models/user_model.dart';
+import 'package:salesvista/phase_1_core/app_routes.dart';
 import 'package:salesvista/phase_4_widgets/base_scaffold.dart';
+import 'package:salesvista/phase_3_services/pos_repository.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -49,8 +50,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
               bottom: 80,
               right: 16,
               child: FloatingActionButton(
-                onPressed: () => _showAddOrderDialog(context),
-                child: const Icon(Icons.add_shopping_cart),
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.pos),
+                child: const Icon(Icons.point_of_sale_rounded),
               ),
             ),
 
@@ -305,6 +306,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final invoiceBox = Hive.box<InvoiceModel>('invoice_box');
     final transactionBox = Hive.box<TransactionModel>('transactions_box');
     final usersBox = Hive.box<UserModel>('users_box');
+    final repo = PosRepository();
 
     SalesModel? selectedProduct;
     UserModel? selectedUser;
@@ -416,7 +418,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   }
 
                   final due = total - paid;
+                  final now = DateTime.now();
                   final orderId = const Uuid().v4();
+                  final invoiceId = repo.invoiceNumberFor(now);
 
                   final order = OrderModel(
                     id: orderId,
@@ -428,13 +432,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     totalAmount: total,
                     paidAmount: paid,
                     dueAmount: due,
-                    date: DateTime.now(),
+                    date: now,
                   );
 
                   await orderBox.put(orderId, order);
 
                   final invoice = InvoiceModel(
-                    id: orderId,
+                    id: invoiceId,
                     orderId: orderId,
                     saleId: selectedProduct!.id,
                     customerName: selectedUser!.name,
@@ -443,24 +447,36 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         selectedProduct!.productName,
                     quantity: qty,
                     unitPrice: selectedProduct!.amount,
+                    lineItems: [
+                      {
+                        'orderId': orderId,
+                        'productId': selectedProduct!.id,
+                        'productName': selectedProduct!.productName,
+                        'hsn': '',
+                        'quantity': qty,
+                        'unitPrice': selectedProduct!.amount,
+                        'gstPercent': 0.0,
+                      },
+                    ],
                     paidAmount: paid,
                     dueAmount: due,
-                    date: DateTime.now(),
+                    date: now,
                   );
 
-                  await invoiceBox.put(orderId, invoice);
+                  await invoiceBox.put(invoiceId, invoice);
 
                   final transaction = TransactionModel(
-                    id: orderId,
+                    id: invoiceId,
                     orderId: orderId,
-                    title:
-                        "${selectedProduct!.productName} x${qty.toStringAsFixed(2)}",
-                    amount: total,
+                    title: "POS Bill $invoiceId - ${selectedUser!.name}",
+                    amount: paid,
                     type: "income",
-                    date: DateTime.now(),
+                    date: now,
                   );
 
-                  await transactionBox.put(orderId, transaction);
+                  if (paid > 0) {
+                    await transactionBox.put(invoiceId, transaction);
+                  }
 
                   // ignore: use_build_context_synchronously
                   Navigator.pop(context);

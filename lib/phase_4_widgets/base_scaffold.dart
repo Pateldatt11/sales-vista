@@ -1,8 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../phase_1_core/app_routes.dart';
-import '../phase_1_core/responsive.dart';
+import 'package:salesvista/phase_1_core/app_routes.dart';
+import 'package:salesvista/phase_1_core/app_theme.dart';
+import 'package:salesvista/phase_1_core/responsive.dart';
 
 class BaseScaffold extends StatelessWidget {
   final String title;
@@ -52,7 +53,7 @@ class BaseScaffold extends StatelessWidget {
                 top: isLandscape ? 8 : padding,
                 bottom: isLandscape ? 8 : padding,
               ),
-              child: body,
+              child: _animatedPage(body),
             ),
           ),
         ),
@@ -83,7 +84,7 @@ class BaseScaffold extends StatelessWidget {
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.all(padding),
-                    child: body,
+                    child: _animatedPage(body),
                   ),
                 ),
               ],
@@ -101,10 +102,59 @@ class BaseScaffold extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: EdgeInsets.all(padding),
-              child: body,
+              child: _animatedPage(body),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+
+  Widget _animatedPage(Widget child) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned(
+          right: -90,
+          top: -80,
+          child: _ambientBlob(220, SalesVistaPalette.secondary.withOpacity(0.10)),
+        ),
+        Positioned(
+          left: -110,
+          bottom: -120,
+          child: _ambientBlob(260, SalesVistaPalette.primary.withOpacity(0.08)),
+        ),
+        Positioned.fill(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 420),
+          curve: Curves.easeOutCubic,
+          builder: (context, value, animatedChild) {
+            return Opacity(
+              opacity: value,
+              child: Transform.translate(
+                offset: Offset(0, 16 * (1 - value)),
+                child: animatedChild,
+              ),
+            );
+          },
+            child: child,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _ambientBlob(double size, Color color) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(colors: [color, color.withOpacity(0)]),
+        ),
       ),
     );
   }
@@ -114,7 +164,13 @@ class BaseScaffold extends StatelessWidget {
         child: ListView(
           children: [
             const DrawerHeader(
-              decoration: BoxDecoration(color: Colors.indigo),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [SalesVistaPalette.primary, SalesVistaPalette.secondary],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
               child: Text(
                 "SalesVista",
                 style:
@@ -130,7 +186,7 @@ class BaseScaffold extends StatelessWidget {
     final isActive = currentRoute == item.route;
     return ListTile(
       leading:
-          Icon(item.icon, color: isActive ? Colors.indigo : null),
+          Icon(item.icon, color: isActive ? SalesVistaPalette.primary : null),
       title: Text(
         item.title,
         style: TextStyle(
@@ -163,13 +219,14 @@ class BaseScaffold extends StatelessWidget {
           width: width,
           decoration: BoxDecoration(
             // ignore: deprecated_member_use
-            color: Colors.white.withOpacity(0.2),
+            color: SalesVistaPalette.surface.withOpacity(0.72),
           ),
           child: Column(
             children: [
               SizedBox(height: topSpacing),
               Icon(Icons.analytics_rounded,
-                  size: baseIconSize * 0.7),
+                  size: baseIconSize * 0.7,
+                  color: SalesVistaPalette.primary),
               SizedBox(height: topSpacing),
               Expanded(
                 child: ScrollConfiguration(
@@ -201,7 +258,7 @@ class BaseScaffold extends StatelessWidget {
             width: 130,
             decoration: BoxDecoration(
               // ignore: deprecated_member_use
-              color: Colors.white.withOpacity(0.2),
+              color: SalesVistaPalette.surface.withOpacity(0.72),
               borderRadius:
                   BorderRadius.circular(20),
             ),
@@ -209,7 +266,7 @@ class BaseScaffold extends StatelessWidget {
               children: [
                 const SizedBox(height: 30),
                 const Icon(Icons.analytics_rounded,
-                    size: 32),
+                    size: 32, color: SalesVistaPalette.primary),
                 const SizedBox(height: 30),
                 Expanded(
                   child: ScrollConfiguration(
@@ -235,30 +292,23 @@ class BaseScaffold extends StatelessWidget {
 
   // ================= ROUTES =================
   List<_RouteItem> get _routes => [
-        _RouteItem("Dashboard", AppRoutes.dashboard,
-            Icons.dashboard_rounded),
-        _RouteItem("Sales", AppRoutes.sales,
-            Icons.trending_up_rounded),
-        _RouteItem("Transactions",
-            AppRoutes.transactions,
-            Icons.receipt_long_rounded),
-        _RouteItem("Users", AppRoutes.users,
-            Icons.group_rounded),
-        _RouteItem("Countries",
-            AppRoutes.countries,
-            Icons.public_rounded),
-        _RouteItem("Invoices", AppRoutes.invoice,
-            Icons.description_rounded),
-        _RouteItem("Orders", AppRoutes.orders,
-            Icons.shopping_cart_rounded),
-        _RouteItem("GST R1", AppRoutes.gstr1,
-            Icons.file_download_rounded),
-        _RouteItem("Company Info",
-            AppRoutes.company,
-            Icons.business_rounded),
-        _RouteItem("Settings",
-            AppRoutes.settings,
-            Icons.settings_rounded),
+        _RouteItem("Dashboard", AppRoutes.dashboard, Icons.dashboard_rounded),
+        _RouteItem("POS", AppRoutes.pos, Icons.point_of_sale_rounded),
+        _RouteItem("Inventory", AppRoutes.inventory, Icons.inventory_2_rounded),
+        _RouteItem("Refill/Expenses", AppRoutes.expenses, Icons.move_down_rounded),
+        _RouteItem("Customers", AppRoutes.customers, Icons.groups_rounded),
+        _RouteItem("Sales", AppRoutes.sales, Icons.trending_up_rounded),
+        _RouteItem("Invoices", AppRoutes.invoice, Icons.description_rounded),
+        _RouteItem("Orders", AppRoutes.orders, Icons.shopping_cart_rounded),
+        _RouteItem("Returns", AppRoutes.returns, Icons.assignment_return_rounded),
+        _RouteItem("Transactions", AppRoutes.transactions, Icons.receipt_long_rounded),
+        _RouteItem("Reports", AppRoutes.reports, Icons.analytics_rounded),
+        _RouteItem("GST R1", AppRoutes.gstr1, Icons.file_download_rounded),
+        _RouteItem("Backup", AppRoutes.backup, Icons.backup_rounded),
+        _RouteItem("Users", AppRoutes.users, Icons.group_rounded),
+        _RouteItem("Countries", AppRoutes.countries, Icons.public_rounded),
+        _RouteItem("Company Info", AppRoutes.company, Icons.business_rounded),
+        _RouteItem("Settings", AppRoutes.settings, Icons.settings_rounded),
       ];
 }
 
@@ -394,9 +444,9 @@ class _TabletDockState extends State<_TabletDock> {
                       decoration:
                           BoxDecoration(
                         color: isActive
-                            ? Colors.indigo
+                            ? SalesVistaPalette.primary
                                 // ignore: deprecated_member_use
-                                .withOpacity(0.15)
+                                .withOpacity(0.14)
                             : (_hoverIndex ==
                                     i
                                 ? Colors
@@ -411,11 +461,10 @@ class _TabletDockState extends State<_TabletDock> {
                         boxShadow: isActive
                             ? [
                                 BoxShadow(
-                                  color: Colors
-                                      .indigo
+                                  color: SalesVistaPalette.secondary
                                       // ignore: deprecated_member_use
                                       .withOpacity(
-                                          0.4),
+                                          0.28),
                                   blurRadius:
                                       25,
                                   spreadRadius:
@@ -431,8 +480,7 @@ class _TabletDockState extends State<_TabletDock> {
                                   .baseIconSize *
                               0.55,
                           color: isActive
-                              ? Colors
-                                  .indigo
+                              ? SalesVistaPalette.primary
                               : Colors.grey
                                   .shade700,
                         ),
@@ -518,9 +566,9 @@ class _MacStyleDockState
               width: 48 * scale * 1.2,
               decoration: BoxDecoration(
                 color: isActive
-                    ? Colors.indigo
+                    ? SalesVistaPalette.primary
                         // ignore: deprecated_member_use
-                        .withOpacity(0.15)
+                        .withOpacity(0.14)
                     : (_hoverIndex == i
                         ? Colors
                             .grey
@@ -533,7 +581,7 @@ class _MacStyleDockState
               child: Icon(
                 item.icon,
                 color: isActive
-                    ? Colors.indigo
+                    ? SalesVistaPalette.primary
                     : Colors
                         .grey
                         .shade700,
