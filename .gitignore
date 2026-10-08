@@ -31,7 +31,9 @@ migrate_working_dir/
 .flutter-plugins
 .pub-cache/
 .pub/
-/build/
+/build/*
+!/build/web/
+!/build/web/**
 /coverage/
 /lib.zip
 .fvm/
